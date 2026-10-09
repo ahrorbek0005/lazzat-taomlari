@@ -1,0 +1,1865 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lazzat — 54 ta Retsept & Haqiqiy Google Gemini AI Oshpaz Portali</title>
+  <meta name="description" content="54 xil sara taomlar retsepti, haqiqiy Google Gemini AI Vision (rasm orqali masalliq aniqlash), 346+ masalliqlar bazasi va sehrli aqlli oshxona.">
+
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <!-- Asosiy stillar -->
+  <link rel="stylesheet" href="style.css">
+
+  <!-- React 18 va ReactDOM UMD -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  
+  <!-- Babel Standalone (JSX ni brauzerda kompilyatsiya qilish uchun) -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- 52 ta Retseptlar va AI bilimlari bazasi -->
+  <script src="data.js"></script>
+</head>
+<body>
+  <!-- React ildiz konteyneri -->
+  <div id="root"></div>
+
+  <!-- React Komponentlari va Logikasi (Babel JSX) -->
+  <script type="text/babel">
+    const { useState, useEffect, useMemo } = React;
+
+    function App() {
+      // 1. STATE-LAR
+      const [activeTab, setActiveTab] = useState("recipes");
+      const [searchQuery, setSearchQuery] = useState("");
+      const [favorites, setFavorites] = useState(() => {
+        try {
+          const saved = localStorage.getItem("lazzat_favorites_v2");
+          return saved ? JSON.parse(saved) : [1, 3, 26, 46];
+        } catch (e) {
+          return [1, 3, 26, 46];
+        }
+      });
+      const [recipes, setRecipes] = useState(window.RECIPES_DATA || []);
+      const [selectedCategory, setSelectedCategory] = useState("all");
+      const [sortBy, setSortBy] = useState("default");
+      const [difficultyFilter, setDifficultyFilter] = useState("all");
+      const [onlyFavorites, setOnlyFavorites] = useState(false);
+
+      const [activeRecipe, setActiveRecipe] = useState(null);
+      const [servingsCount, setServingsCount] = useState(4);
+      const [checkedIngredients, setCheckedIngredients] = useState({});
+      const [isFavoritesDrawerOpen, setIsFavoritesDrawerOpen] = useState(false);
+      const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+      // Google Gemini AI Sozlamalari
+      const [geminiApiKey, setGeminiApiKey] = useState(() => {
+        try {
+          return localStorage.getItem("lazzat_gemini_api_key") || "";
+        } catch (e) {
+          return "";
+        }
+      });
+      const [isGeminiModalOpen, setIsGeminiModalOpen] = useState(false);
+      const [geminiApiKeyInput, setGeminiApiKeyInput] = useState(() => {
+        try {
+          return localStorage.getItem("lazzat_gemini_api_key") || "";
+        } catch (e) {
+          return "";
+        }
+      });
+      const [showApiKeyText, setShowApiKeyText] = useState(false);
+      const [isTestingGemini, setIsTestingGemini] = useState(false);
+      const [geminiTestStatus, setGeminiTestStatus] = useState(null);
+      const [geminiTestMessage, setGeminiTestMessage] = useState("");
+
+      // AI Masalliq O'rnini Bosish
+      const [isSubModalOpen, setIsSubModalOpen] = useState(false);
+      const [subQuery, setSubQuery] = useState("");
+      const [subResult, setSubResult] = useState(null);
+      const [isSubLoadingAi, setIsSubLoadingAi] = useState(false);
+
+      // AI Menda Bor Masalliqlar (Sehrli Oshxona)
+      const [fridgeIngredients, setFridgeIngredients] = useState([
+        "Mol go'shti", "Sariq sabzi", "Lazer guruchi", "Piyoz"
+      ]);
+      const [customIngInput, setCustomIngInput] = useState("");
+      const [ingredientCategoryFilter, setIngredientCategoryFilter] = useState("all");
+      const [ingredientSearchQuery, setIngredientSearchQuery] = useState("");
+
+      const [uploadedPhoto, setUploadedPhoto] = useState(null);
+      const [isScanningPhoto, setIsScanningPhoto] = useState(false);
+      const [photoScanTag, setPhotoScanTag] = useState("");
+      const [isGeneratingAi, setIsGeneratingAi] = useState(false);
+      const [aiMatchedRecipes, setAiMatchedRecipes] = useState(null);
+      const [aiCustomDish, setAiCustomDish] = useState(null);
+
+      // Taymer va Toast
+      const [timerSeconds, setTimerSeconds] = useState(0);
+      const [isTimerActive, setIsTimerActive] = useState(false);
+      const [toastMessage, setToastMessage] = useState(null);
+
+      const [newRecipeForm, setNewRecipeForm] = useState({
+        title: "",
+        category: "milliy",
+        time: "",
+        servings: 4,
+        calories: "",
+        difficulty: "Oson",
+        description: "",
+        image: "",
+        ingredientsText: "",
+        instructionsText: ""
+      });
+
+      useEffect(() => {
+        try {
+          localStorage.setItem("lazzat_favorites_v2", JSON.stringify(favorites));
+        } catch (e) {
+          console.error(e);
+        }
+      }, [favorites]);
+
+      useEffect(() => {
+        let interval = null;
+        if (isTimerActive) {
+          interval = setInterval(() => {
+            setTimerSeconds(prev => prev + 1);
+          }, 1000);
+        } else {
+          clearInterval(interval);
+        }
+        return () => clearInterval(interval);
+      }, [isTimerActive]);
+
+      const showToast = (msg) => {
+        setToastMessage(msg);
+        setTimeout(() => {
+          setToastMessage(null);
+        }, 3200);
+      };
+
+      // 2. EVENT HANDLERS
+      const handleSearchChange = (e) => setSearchQuery(e.target.value);
+      const handleClearSearch = () => setSearchQuery("");
+
+      const toggleFavorite = (recipeId, e) => {
+        if (e) e.stopPropagation();
+        if (favorites.includes(recipeId)) {
+          setFavorites(favorites.filter(id => id !== recipeId));
+          showToast("💔 Retsept sevimlilardan olib tashlandi");
+        } else {
+          setFavorites([...favorites, recipeId]);
+          showToast("❤️ Retsept sevimlilar ro'yxatiga qo'shildi!");
+        }
+      };
+
+      const handleCategorySelect = (categoryId) => setSelectedCategory(categoryId);
+      const handleSortChange = (e) => setSortBy(e.target.value);
+      const handleDifficultyChange = (e) => setDifficultyFilter(e.target.value);
+
+      const handleOpenRecipeModal = (recipe) => {
+        setActiveRecipe(recipe);
+        setServingsCount(recipe.servings || 4);
+        setCheckedIngredients({});
+        setTimerSeconds(0);
+        setIsTimerActive(false);
+      };
+
+      const handleCloseRecipeModal = () => {
+        setActiveRecipe(null);
+        setIsTimerActive(false);
+      };
+
+      const handleServingChange = (delta) => {
+        setServingsCount(prev => Math.max(1, Math.min(12, prev + delta)));
+      };
+
+      const handleToggleIngredient = (index) => {
+        setCheckedIngredients(prev => ({ ...prev, [index]: !prev[index] }));
+      };
+
+      const toggleTimer = () => setIsTimerActive(prev => !prev);
+      const resetTimer = () => {
+        setIsTimerActive(false);
+        setTimerSeconds(0);
+      };
+
+      const formatTimer = (totalSeconds) => {
+        const mins = Math.floor(totalSeconds / 60);
+        const secs = totalSeconds % 60;
+        return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      };
+
+      // GEMINI API SOZLAMALARI HANDLERLARI
+      const handleSaveGeminiKey = () => {
+        const key = geminiApiKeyInput.trim();
+        if (!key) return;
+        try {
+          localStorage.setItem("lazzat_gemini_api_key", key);
+          setGeminiApiKey(key);
+          setGeminiTestStatus("success");
+          setGeminiTestMessage("✅ Gemini API kaliti muvaffaqiyatli saqlandi!");
+          showToast("✨ Google Gemini API muvaffaqiyatli ulandi!");
+          setTimeout(() => {
+            setIsGeminiModalOpen(false);
+            setGeminiTestMessage("");
+          }, 1200);
+        } catch (e) {
+          console.error(e);
+        }
+      };
+
+      const handleDisconnectGemini = () => {
+        try {
+          localStorage.removeItem("lazzat_gemini_api_key");
+          setGeminiApiKey("");
+          setGeminiApiKeyInput("");
+          setGeminiTestStatus(null);
+          setGeminiTestMessage("");
+          showToast("🔌 Gemini API kaliti o'chirildi");
+        } catch (e) {
+          console.error(e);
+        }
+      };
+
+      const handleTestGeminiConnection = async () => {
+        const testKey = geminiApiKeyInput.trim() || geminiApiKey;
+        if (!testKey) {
+          setGeminiTestStatus("error");
+          setGeminiTestMessage("⚠️ Avval API kalitni kiriting!");
+          return;
+        }
+
+        setIsTestingGemini(true);
+        setGeminiTestStatus(null);
+        setGeminiTestMessage("⚡ Google Gemini serveriga so'rov yuborilmoqda...");
+
+        try {
+          const testReply = await window.callGeminiApi({
+            apiKey: testKey,
+            prompt: "Salom! Agar aloqa yaxshi bo'lsa, 'OK' deb qisqa javob ber."
+          });
+
+          setGeminiTestStatus("success");
+          setGeminiTestMessage(`✅ Aloqa o'rnatildi! Gemini javobi: "${testReply.trim().slice(0, 40)}"`);
+          showToast("⚡ Gemini AI bilan aloqa a'lo darajada!");
+        } catch (err) {
+          setGeminiTestStatus("error");
+          setGeminiTestMessage(`❌ Ulanish xatosi: ${err.message}`);
+          showToast("❌ Gemini API ulanishida xatolik");
+        } finally {
+          setIsTestingGemini(false);
+        }
+      };
+
+      // AI SUBSTITUTE LOGIC (LOKAL + HAQIQIY GEMINI AI)
+      const handleOpenSubstituteModal = (initialIngredient = "") => {
+        setIsSubModalOpen(true);
+        setSubQuery(initialIngredient);
+        if (initialIngredient) {
+          findSubstitute(initialIngredient);
+        } else {
+          setSubResult(null);
+        }
+      };
+
+      const findSubstitute = async (query) => {
+        const q = query.toLowerCase().trim();
+        if (!q) {
+          setSubResult(null);
+          return;
+        }
+
+        // 1. Avval mahalliy bilimlar bazasidan qidiramiz
+        const db = window.AI_SUBSTITUTES || {};
+        let foundKey = Object.keys(db).find(key => q.includes(key) || key.includes(q));
+
+        if (foundKey) {
+          setSubResult({
+            ...db[foundKey],
+            isGeminiLive: false
+          });
+        } else {
+          setSubResult({
+            name: `"${query}" uchun oshpazlik tavsiyasi`,
+            alternatives: [
+              "O'xshash toifadagi mahsulotdan foydalaning (masalan, go'sht turlari yoki sutli mahsulotlar bir-birini almashtiradi)",
+              "Ziravor yetishmasa, qora murch, zira va osh tuzi bilan asosiy ta'mni mustahkamlang",
+              "Agar asosiy masalliq bo'lmasa, taomdan olib tashlab, kartoshka yoki piyoz miqdorini ozroq oshiring"
+            ],
+            advice: `Ushbu retseptda "${query}" masallig'i bo'lmasa ham, to'g'ri olov me'yori orqali mazali taom tayyorlash mumkin!`,
+            isGeminiLive: false
+          });
+        }
+
+        // 2. Agar Gemini API kalit mavjud bo'lsa, 100% haqiqiy Gemini AI dan maslahat olamiz!
+        const activeKey = geminiApiKey || localStorage.getItem("lazzat_gemini_api_key");
+        if (activeKey) {
+          setIsSubLoadingAi(true);
+          try {
+            const prompt = `Sen professional o'zbek va jahon bosh oshpazisan. Foydalanuvchi taom tayyorlashda quyidagi masalliq o'rniga uy sharoitida nima ishlatish mumkinligini so'ramoqda: "${query}".
+Iltimos, o'zbek oshxonasi va har qanday xonadonda topiladigan 3-4 ta eng zo'r muqobilni (aniq proporsiyasi va ishlatilish usuli bilan) hamda bosh oshpazning oltin sirini o'zbek tilida ber.
+Javobni FAQAT toza JSON formatida qaytar:
+{
+  "name": "${query}",
+  "alternatives": [
+    "1-muqobil: ...",
+    "2-muqobil: ...",
+    "3-muqobil: ..."
+  ],
+  "advice": "Oshpaz siri va maslahati..."
+}`;
+
+            const aiRaw = await window.callGeminiApi({
+              apiKey: activeKey,
+              prompt: prompt
+            });
+
+            const match = aiRaw.match(/\{[\s\S]*\}/);
+            if (match) {
+              const parsed = JSON.parse(match[0]);
+              if (parsed.alternatives && parsed.alternatives.length > 0) {
+                setSubResult({
+                  name: parsed.name || query,
+                  alternatives: parsed.alternatives,
+                  advice: parsed.advice || "Taomni mehr bilan pishiring!",
+                  isGeminiLive: true
+                });
+              }
+            }
+          } catch (err) {
+            console.warn("Gemini substitute xatosi:", err.message);
+          } finally {
+            setIsSubLoadingAi(false);
+          }
+        }
+      };
+
+      const handleSubQueryChange = (e) => {
+        const val = e.target.value;
+        setSubQuery(val);
+        findSubstitute(val);
+      };
+
+      // AI FRIDGE INGREDIENTS (MENDA BOR MASALLIQLAR)
+      const handleAddFridgeIngredient = (ingName) => {
+        const clean = (ingName || customIngInput).trim();
+        if (!clean) return;
+        if (!fridgeIngredients.some(i => i.toLowerCase() === clean.toLowerCase())) {
+          setFridgeIngredients([...fridgeIngredients, clean]);
+        }
+        setCustomIngInput("");
+      };
+
+      const handleToggleFridgeIngredient = (ingName) => {
+        const clean = ingName.trim();
+        if (!clean) return;
+        const exists = fridgeIngredients.some(i => i.toLowerCase() === clean.toLowerCase());
+        if (exists) {
+          setFridgeIngredients(fridgeIngredients.filter(i => i.toLowerCase() !== clean.toLowerCase()));
+        } else {
+          setFridgeIngredients([...fridgeIngredients, clean]);
+        }
+      };
+
+      const handleRemoveFridgeIngredient = (index) => {
+        setFridgeIngredients(fridgeIngredients.filter((_, idx) => idx !== index));
+      };
+
+      const handleClearFridgeIngredients = () => {
+        setFridgeIngredients([]);
+        setAiMatchedRecipes(null);
+        setAiCustomDish(null);
+        showToast("Masalliqlar ro'yxati tozalandi");
+      };
+
+      // RASM ORQALI MASALLIQNI ANIKLASH (HAQIQIY GEMINI VISION AI)
+      const handlePhotoUpload = async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          const dataUrl = event.target.result;
+          setUploadedPhoto(dataUrl);
+          setIsScanningPhoto(true);
+
+          const activeKey = geminiApiKey || localStorage.getItem("lazzat_gemini_api_key");
+
+          if (activeKey) {
+            setPhotoScanTag("✨ Google Gemini Vision piksellarni skanerlamoqda...");
+            try {
+              const visionPrompt = `Sen professional bosh oshpaz va tasvirni tahlil qiluvchi mutaxassisisan.
+Ushbu rasmda ko'rinib turgan BARCHA oziq-ovqat mahsulotlari, go'sht, sabzavotlar, guruch, donlar, mevalar yoki pishirish masalliqlarini sinchkovlik bilan aniqla.
+Agar rasmda go'sht bo'lsa 'Go\\'sht', sabzi bo'lsa 'Sabzi', guruch bo'lsa 'Guruch' deb aniq va to'g'ri o'zbek tilida nomla.
+Javobni FAQAT toza JSON formatida qaytar, boshqa hech qanday so'zsiz:
+{
+  "detected": ["Go'sht", "Sabzi", "Guruch"],
+  "summary": "Rasmda to'g'ralgan go'sht, sariq sabzi va guruch aniqlandi."
+}`;
+
+              const mime = file.type || "image/jpeg";
+              const rawAiResponse = await window.callGeminiApi({
+                apiKey: activeKey,
+                prompt: visionPrompt,
+                imageBase64: dataUrl,
+                mimeType: mime
+              });
+
+              let detectedList = [];
+              let summaryText = "";
+
+              try {
+                const match = rawAiResponse.match(/\{[\s\S]*\}/);
+                const parsed = JSON.parse(match ? match[0] : rawAiResponse);
+                detectedList = parsed.detected || [];
+                summaryText = parsed.summary || "";
+              } catch (parseErr) {
+                detectedList = rawAiResponse.split(/[\n,]/)
+                  .map(s => s.trim().replace(/^[-*•0-9.]+\s*/, ''))
+                  .filter(s => s.length > 2 && s.length < 30)
+                  .slice(0, 8);
+              }
+
+              if (detectedList.length > 0) {
+                const updated = [...new Set([...fridgeIngredients, ...detectedList])];
+                setFridgeIngredients(updated);
+                setPhotoScanTag(`✅ Gemini Vision aniqladi: ${detectedList.join(", ")}!`);
+                showToast(`📸 Gemini Vision ${detectedList.length} ta masalliqni muvaffaqiyatli aniqladi!`);
+              } else {
+                setPhotoScanTag("⚠️ Rasmdan aniq masalliq ajratib bo'lmadi. Quyidagi ro'yxatdan tanlang.");
+              }
+            } catch (err) {
+              console.error("Gemini Vision xatosi:", err);
+              setPhotoScanTag(`❌ AI Xatolik: ${err.message}`);
+              showToast("⚠️ Gemini API Vision so'rovida xatolik yuz berdi");
+            } finally {
+              setIsScanningPhoto(false);
+            }
+          } else {
+            // Agar API kalit kiritilmagan bo'lsa
+            setIsScanningPhoto(false);
+            setPhotoScanTag("🔑 Rasmdagi go'sht, sabzi, guruchni 100% aniqlash uchun Gemini API kalitini ulang!");
+            setIsGeminiModalOpen(true);
+            showToast("💡 Rasmni haqiqiy AI bilan aniqlash uchun Gemini API kalitini kiriting!");
+          }
+        };
+        reader.readAsDataURL(file);
+      };
+
+      // HAQIQIY GEMINI AI BILAN TAOM TAKLIF QILISH
+      const handleGenerateAiRecipes = async () => {
+        if (fridgeIngredients.length === 0) {
+          showToast("⚠️ Avval kamida 2-3 ta masalliq qo'shing yoki tanlang!");
+          return;
+        }
+
+        setIsGeneratingAi(true);
+
+        // 1. Bazadagi 54 ta retsept bilan solishtirish (Match Score)
+        const scored = recipes.map(recipe => {
+          const recipeIngNames = recipe.ingredients.map(i => i.name.toLowerCase());
+          let matches = 0;
+          let missing = [];
+
+          recipeIngNames.forEach(rIng => {
+            const hasIt = fridgeIngredients.some(fIng => {
+              const fi = fIng.toLowerCase();
+              return rIng.includes(fi) || fi.includes(rIng.slice(0, 4));
+            });
+            if (hasIt) {
+              matches++;
+            } else {
+              missing.push(rIng);
+            }
+          });
+
+          const scorePercent = Math.min(100, Math.round((matches / Math.max(1, recipe.ingredients.length)) * 100));
+          return {
+            ...recipe,
+            matchScore: scorePercent,
+            missingIngredients: missing.slice(0, 3)
+          };
+        }).filter(r => r.matchScore > 15)
+          .sort((a, b) => b.matchScore - a.matchScore)
+          .slice(0, 6);
+
+        setAiMatchedRecipes(scored.length > 0 ? scored : recipes.slice(0, 4));
+
+        const activeKey = geminiApiKey || localStorage.getItem("lazzat_gemini_api_key");
+
+        if (activeKey) {
+          try {
+            const ingredientsStr = fridgeIngredients.join(", ");
+            const prompt = `Sen dunyoga mashhur professional bosh oshpazsan.
+Foydalanuvchida bor masalliqlar: [${ingredientsStr}].
+
+Vazifa:
+1. Aynan shu masalliqlardan foydalanib, eng mazali va ishtahaochar "AI Mualliflik Retsepti" (O'zbekcha / xonaki uslubdagi mukammal taom) yaratib ber.
+2. Kerakli miqdorlar, pishirish vaqti, kaloriya, bosqichma-bosqich qadamlar va bosh oshpaz sirini ber.
+
+Javobni FAQAT quyidagi toza JSON formatida qaytar, boshqa hech qanday matnsiz:
+{
+  "title": "Taomning o'zbekcha chiroyli nomi",
+  "time": 35,
+  "servings": 4,
+  "calories": 480,
+  "difficulty": "O'rtacha",
+  "description": "Taomning ishtahaochar 2 jumlali ta'rifi",
+  "ingredients": ["300g Go'sht", "2 dona Sabzi", "200g Guruch", "1 dona Piyoz"],
+  "steps": [
+    "1-qadam...",
+    "2-qadam...",
+    "3-qadam...",
+    "4-qadam..."
+  ],
+  "chefSecret": "Bosh oshpazning mazali chiqishi uchun eng muhim siri",
+  "substituteAdvice": "Yetishmayotgan masalliqlar o'rniga nima ishlatish mumkinligi haqida maslahat"
+}`;
+
+            const rawAiResponse = await window.callGeminiApi({
+              apiKey: activeKey,
+              prompt: prompt
+            });
+
+            let parsedDish = null;
+            try {
+              const match = rawAiResponse.match(/\{[\s\S]*\}/);
+              parsedDish = JSON.parse(match ? match[0] : rawAiResponse);
+            } catch (pErr) {
+              console.warn("AI JSON parse xatosi:", pErr);
+            }
+
+            if (parsedDish && parsedDish.title) {
+              setAiCustomDish({
+                title: parsedDish.title,
+                time: parsedDish.time || 35,
+                servings: parsedDish.servings || 4,
+                calories: parsedDish.calories || 480,
+                difficulty: parsedDish.difficulty || "O'rtacha",
+                description: parsedDish.description || `Sizdagi ${ingredientsStr} masalliqlari asosida tayyorlanadigan maxsus taom.`,
+                ingredients: parsedDish.ingredients || fridgeIngredients.map(i => `Kerakli miqdorda ${i}`),
+                steps: parsedDish.steps || [
+                  `1-qadam: ${fridgeIngredients[0] || "Masalliqlarni"} to'g'rab tayyorlab oling.`,
+                  `2-qadam: Tovada qizigan yog'da qovurib, ziravorlar seping.`,
+                  `3-qadam: Past olovda dimlab, dasturxonga torting.`
+                ],
+                chefSecret: parsedDish.chefSecret || "Taomni mehr bilan, me'yoriy olovda pishiring!",
+                substituteAdvice: parsedDish.substituteAdvice || "",
+                isGeminiPowered: true
+              });
+              showToast("✨ Gemini AI haqiqiy maxsus retsept yaratdi!");
+            } else {
+              throw new Error("Gemini javobini o'qib bo'lmadi");
+            }
+          } catch (err) {
+            console.error("Gemini AI generatsiya xatosi:", err);
+            showToast("⚠️ Gemini API xatoligi, mahalliy retsept taqdim etildi");
+            createFallbackCustomDish();
+          } finally {
+            setIsGeneratingAi(false);
+          }
+        } else {
+          // API Key yo'q bo'lsa lokal oshpazlik qoidalaridan foydalanamiz
+          setTimeout(() => {
+            createFallbackCustomDish();
+            setIsGeneratingAi(false);
+            showToast("✨ AI Oshpaz masalliqlaringiz asosida taom tavsiya qildi!");
+          }, 900);
+        }
+      };
+
+      const createFallbackCustomDish = () => {
+        const ingsStr = fridgeIngredients.slice(0, 4).join(", ");
+        setAiCustomDish({
+          title: `Shohona Xonaki Qovurma (${fridgeIngredients[0] || "Go'sht"} va ${fridgeIngredients[1] || "Sabzavotlar"})`,
+          time: 30,
+          servings: 4,
+          calories: 420,
+          difficulty: "Oson",
+          description: `Sizdagi ${ingsStr} masalliqlari uyg'unligida tayyorlanadigan yengil, to'yimli va mazali xonadon taomi.`,
+          ingredients: fridgeIngredients.map(i => `300g ${i}`),
+          steps: [
+            `1-qadam: ${fridgeIngredients[0] || "Go'sht"} va boshqa masalliqlarni bir xil o'lchamda to'g'rab oling.`,
+            `2-qadam: Qozonda yog'ni qizdirib, avval qattiqroq masalliqlarni 8-10 daqiqa baland olovda qovuring.`,
+            `3-qadam: Qolgan masalliqlarni va ta'bga ko'ra tuz, murch va zira qo'shib aralashtiring.`,
+            `4-qadam: Olovni pasaytirib, qopqog'ini yoping va 12 daqiqa dimlang.`
+          ],
+          chefSecret: "Taom pishishidan 2 daqiqa oldin ustiga yangi maydalangan sarimsoq va ko'kat sepsangiz xushbo'yligi butun uyga tarqaladi.",
+          substituteAdvice: "Yetishmayotgan ziravorlar o'rniga oddiy qora murch va osh tuzi kifoya qiladi.",
+          isGeminiPowered: false
+        });
+      };
+
+      // 3. SARALASH VA QIDIRUV (useMemo)
+      const filteredRecipes = useMemo(() => {
+        return recipes.filter(recipe => {
+          const matchesSearch = 
+            recipe.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            recipe.description.toLowerCase().includes(searchQuery.toLowerCase());
+
+          const matchesCategory = 
+            selectedCategory === "all" || recipe.category === selectedCategory;
+
+          const matchesDifficulty = 
+            difficultyFilter === "all" || recipe.difficulty === difficultyFilter;
+
+          const matchesFavorites = 
+            !onlyFavorites || favorites.includes(recipe.id);
+
+          return matchesSearch && matchesCategory && matchesDifficulty && matchesFavorites;
+        }).sort((a, b) => {
+          if (sortBy === "rating") return b.rating - a.rating;
+          if (sortBy === "time-asc") return a.time - b.time;
+          if (sortBy === "calories-asc") return a.calories - b.calories;
+          return 0;
+        });
+      }, [recipes, searchQuery, selectedCategory, difficultyFilter, onlyFavorites, favorites, sortBy]);
+
+      const favoriteRecipesList = useMemo(() => {
+        return recipes.filter(r => favorites.includes(r.id));
+      }, [recipes, favorites]);
+
+      const filteredCatalogIngredients = useMemo(() => {
+        const db = window.ALL_INGREDIENTS_DB || [];
+        return db.filter(item => {
+          const matchesCat = ingredientCategoryFilter === "all" || item.category === ingredientCategoryFilter;
+          const matchesSearch = !ingredientSearchQuery.trim() || item.name.toLowerCase().includes(ingredientSearchQuery.toLowerCase());
+          return matchesCat && matchesSearch;
+        });
+      }, [ingredientCategoryFilter, ingredientSearchQuery]);
+
+      const handleNewRecipeInputChange = (e) => {
+        const { name, value } = e.target;
+        setNewRecipeForm(prev => ({ ...prev, [name]: value }));
+      };
+
+      const handleAddRecipeSubmit = (e) => {
+        e.preventDefault();
+        if (!newRecipeForm.title.trim()) {
+          alert("Retsept nomini kiriting!");
+          return;
+        }
+
+        const newRecipe = {
+          id: Date.now(),
+          title: newRecipeForm.title,
+          category: newRecipeForm.category,
+          categoryLabel: newRecipeForm.category === "milliy" ? "Milliy taom" :
+                         newRecipeForm.category === "shorva" ? "Sho'rva" :
+                         newRecipeForm.category === "fastfood" ? "Fast Food" :
+                         newRecipeForm.category === "salat" ? "Salat" : "Shirinlik",
+          time: parseInt(newRecipeForm.time) || 30,
+          servings: parseInt(newRecipeForm.servings) || 4,
+          calories: parseInt(newRecipeForm.calories) || 350,
+          difficulty: newRecipeForm.difficulty,
+          rating: 5.0,
+          reviewsCount: 1,
+          image: newRecipeForm.image.trim() || "https://images.unsplash.com/photo-1495521821757-a1efb6729352?auto=format&fit=crop&w=800&q=80",
+          description: newRecipeForm.description || "Xonadonimizning mazali taomi",
+          ingredients: newRecipeForm.ingredientsText
+            ? newRecipeForm.ingredientsText.split("\n").filter(t => t.trim()).map(t => ({ name: t.trim(), amount: 100, unit: "g" }))
+            : [{ name: "Kerakli masalliqlar", amount: 1, unit: "to'plam" }],
+          instructions: newRecipeForm.instructionsText
+            ? newRecipeForm.instructionsText.split("\n").filter(t => t.trim())
+            : ["Barcha masalliqlarni tayyorlang va xush ko'ngil bilan pishiring."],
+          tips: "Mehr bilan tayyorlangan taom doimo eng shirin bo'ladi!"
+        };
+
+        setRecipes([newRecipe, ...recipes]);
+        setIsAddModalOpen(false);
+        showToast(`🎉 "${newRecipe.title}" qo'shildi!`);
+        setNewRecipeForm({
+          title: "",
+          category: "milliy",
+          time: "",
+          servings: 4,
+          calories: "",
+          difficulty: "Oson",
+          description: "",
+          image: "",
+          ingredientsText: "",
+          instructionsText: ""
+        });
+      };
+
+      // 4. JSX INTERFEYS
+      return (
+        <div className="app-root">
+          {/* HEADER */}
+          <header className="navbar">
+            <div className="container nav-container">
+              <div className="logo-group" onClick={() => setActiveTab("recipes")}>
+                <div className="logo-icon-box">👨‍🍳</div>
+                <div className="logo-text">
+                  <h1>Lazzat</h1>
+                  <span>52 ta Taom & AI Oshpaz</span>
+                </div>
+              </div>
+
+              {/* Tab Switcher */}
+              <div className="nav-tab-switcher">
+                <button 
+                  className={`nav-tab-btn ${activeTab === "recipes" ? "active" : ""}`}
+                  onClick={() => setActiveTab("recipes")}
+                >
+                  <span>📖</span> Retseptlar ({recipes.length})
+                </button>
+                <button 
+                  className={`nav-tab-btn ai-btn ${activeTab === "ai-chef" ? "active" : ""}`}
+                  onClick={() => setActiveTab("ai-chef")}
+                >
+                  <span className="ai-pulse-dot"></span>
+                  <span>🤖 AI Sehrli Oshxona</span>
+                </button>
+              </div>
+
+              <div className="nav-actions">
+                <button 
+                  className="student-badge-btn" 
+                  style={{ background: "rgba(139, 92, 246, 0.18)", borderColor: "rgba(139, 92, 246, 0.4)", color: "#c4b5fd" }}
+                  onClick={() => handleOpenSubstituteModal("")}
+                  title="Biror masalliq yetishmasa AI yordami"
+                >
+                  <span>💡</span> AI Maslahat
+                </button>
+
+                <button 
+                  className={`gemini-nav-btn ${geminiApiKey ? "active-key" : "no-key"}`}
+                  onClick={() => setIsGeminiModalOpen(true)}
+                  title="Google Gemini AI API Sozlamalari"
+                >
+                  <span className="gemini-pulse-icon">✨</span>
+                  <span>Gemini AI</span>
+                  <span className="gemini-badge-pill">{geminiApiKey ? "Ulangan" : "Kalit kiritish"}</span>
+                </button>
+
+                <button 
+                  className="fav-nav-btn"
+                  onClick={() => setIsFavoritesDrawerOpen(true)}
+                  title="Sevimli retseptlar"
+                >
+                  <span>❤️</span>
+                  <span>Sevimlilar</span>
+                  <span className="fav-badge-count">{favorites.length}</span>
+                </button>
+
+                <button 
+                  className="btn-primary-compact"
+                  onClick={() => setIsAddModalOpen(true)}
+                >
+                  <span>➕</span> Qo'shish
+                </button>
+              </div>
+            </div>
+          </header>
+
+          {/* 1-BO'LIM: 54 TA RETSEPT MENYUSI */}
+          {activeTab === "recipes" && (
+            <main>
+              <section className="hero-section">
+                <div className="container">
+                  <div className="hero-tag">
+                    <span>✨</span> 54 ta sara taom: Milliy, Sho'rvalar, Fast Food, Salatlar va Shirinliklar
+                  </div>
+                  <h2 className="hero-title">
+                    O'zingiz yoqtirgan <span className="highlight">eng mazali retseptni</span> tanlang
+                  </h2>
+                  <p className="hero-subtitle">
+                    Aniq porsiyalar hisobi, masalliqlarning grammlari, oshpaz sirlari va qadam-baqadam ko'rsatmalar!
+                  </p>
+
+                  <div className="search-wrapper">
+                    <div className="search-input-box">
+                      <span className="search-icon">🔍</span>
+                      <input 
+                        type="text"
+                        className="search-input"
+                        placeholder="Taom nomi yoki masalliqlar bo'yicha qidiring (masalan: Palov, Somsa, Pizza, Mastava, Sezar)..."
+                        value={searchQuery}
+                        onChange={handleSearchChange}
+                      />
+                      {searchQuery && (
+                        <button className="search-clear-btn" onClick={handleClearSearch}>✕</button>
+                      )}
+                      <span className="search-counter-chip">
+                        {filteredRecipes.length} / {recipes.length} ta retsept
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="quick-tags">
+                    <span className="quick-tag-label">Mashhur qidiruvlar:</span>
+                    {["Osh", "Somsa", "Lag'mon", "Pizza", "Mastava", "Shashlik", "Fondan", "Sezar", "Tiramisu"].map(tag => (
+                      <button key={tag} className="quick-tag-pill" onClick={() => setSearchQuery(tag)}>
+                        #{tag}
+                      </button>
+                    ))}
+                    {searchQuery && (
+                      <button className="quick-tag-pill" style={{ color: "#ef4444" }} onClick={handleClearSearch}>
+                        Tozalash ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </section>
+
+              <section className="container">
+                <div className="controls-bar">
+                  <div className="categories-track">
+                    {(window.CATEGORIES_DATA || []).map(cat => (
+                      <button
+                        key={cat.id}
+                        className={`cat-tab-btn ${selectedCategory === cat.id ? "active" : ""}`}
+                        onClick={() => handleCategorySelect(cat.id)}
+                      >
+                        <span>{cat.icon}</span>
+                        <span>{cat.label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="filter-row">
+                    <div className="filter-left-group">
+                      <div className="select-control-box">
+                        <span>🔄 Saralash:</span>
+                        <select value={sortBy} onChange={handleSortChange}>
+                          <option value="default">Standart tartib</option>
+                          <option value="rating">Eng yuqori baho ⭐</option>
+                          <option value="time-asc">Tez tayyorlanadigan ⏱️</option>
+                          <option value="calories-asc">Kam kaloriyali 🥗</option>
+                        </select>
+                      </div>
+
+                      <div className="select-control-box">
+                        <span>📊 Qiyinlik:</span>
+                        <select value={difficultyFilter} onChange={handleDifficultyChange}>
+                          <option value="all">Barchasi</option>
+                          <option value="Oson">Oson</option>
+                          <option value="O'rtacha">O'rtacha</option>
+                          <option value="Qiyin">Qiyin</option>
+                        </select>
+                      </div>
+
+                      <button 
+                        className={`toggle-favs-btn ${onlyFavorites ? "active" : ""}`}
+                        onClick={() => setOnlyFavorites(!onlyFavorites)}
+                      >
+                        <span>{onlyFavorites ? "❤️ Faqat sevimlilar faol" : "🤍 Faqat sevimlilar"}</span>
+                      </button>
+                    </div>
+
+                    <div className="active-count-label">
+                      Ko'rsatilmoqda: <strong>{filteredRecipes.length}</strong> ta retsept
+                    </div>
+                  </div>
+                </div>
+
+                {filteredRecipes.length > 0 ? (
+                  <div className="recipes-grid">
+                    {filteredRecipes.map(recipe => {
+                      const isFav = favorites.includes(recipe.id);
+                      return (
+                        <div key={recipe.id} className="recipe-card">
+                          <div className="card-img-wrapper" onClick={() => handleOpenRecipeModal(recipe)}>
+                            <img src={recipe.image} alt={recipe.title} className="card-img" loading="lazy" />
+                            
+                            <div className="card-top-badges">
+                              <span className="badge-tag badge-cat">{recipe.categoryLabel}</span>
+                              <span className={`badge-tag badge-diff ${recipe.difficulty}`}>{recipe.difficulty}</span>
+                            </div>
+
+                            <button 
+                              className={`fav-heart-btn ${isFav ? "is-favorite" : ""}`}
+                              onClick={(e) => toggleFavorite(recipe.id, e)}
+                              title={isFav ? "Sevimlilardan o'chirish" : "Sevimlilarga qo'shish"}
+                            >
+                              {isFav ? "❤️" : "🤍"}
+                            </button>
+                          </div>
+
+                          <div className="card-body">
+                            <div className="card-meta-row">
+                              <div className="card-time">
+                                <span>⏱️</span> {recipe.time} daqiqa
+                              </div>
+                              <div className="card-rating">
+                                <span>⭐</span> {recipe.rating} ({recipe.reviewsCount})
+                              </div>
+                            </div>
+
+                            <h3 className="card-title">{recipe.title}</h3>
+                            <p className="card-desc">{recipe.description}</p>
+
+                            <div className="card-footer">
+                              <button 
+                                className="btn-card-ai-sub" 
+                                onClick={() => handleOpenSubstituteModal(recipe.ingredients[0] ? recipe.ingredients[0].name : "")}
+                                title="Masalliq yetishmasa AI yordami"
+                              >
+                                🤖 Masalliq o'rniga
+                              </button>
+                              <button className="btn-view-recipe" onClick={() => handleOpenRecipeModal(recipe)}>
+                                Batafsil <span>→</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="empty-state">
+                    <div className="empty-icon">🍳</div>
+                    <h3>Mos keluvchi taom topilmadi</h3>
+                    <p>Qidiruv so'zini o'zgartiring yoki filtrlarni tozalang.</p>
+                    <button 
+                      className="btn-primary-compact"
+                      style={{ margin: "0 auto" }}
+                      onClick={() => {
+                        setSearchQuery("");
+                        setSelectedCategory("all");
+                        setDifficultyFilter("all");
+                        setOnlyFavorites(false);
+                      }}
+                    >
+                      Barcha filtrlarni tozalash
+                    </button>
+                  </div>
+                )}
+              </section>
+            </main>
+          )}
+
+          {/* 2-BO'LIM: AI SEHRLI OSHXONA (MENDA BOR MASALLIQLAR) */}
+          {activeTab === "ai-chef" && (
+            <section className="container ai-fridge-section">
+              <div className="ai-hero-box">
+                <div className="ai-hero-badge">
+                  <span>🤖</span> Aqlli Oshpaz & Neyrotarmoq Tahlili
+                </div>
+                <h2 className="ai-hero-title">
+                  Menda bor masalliqlardan taom tayyorlash
+                </h2>
+                <p className="ai-hero-desc">
+                  Muzlatgichingizdagi yoki oshxonangizdagi masalliqlarni <strong>ro'yxat qilib yozing</strong> yoki ularni <strong>rasmga tushirib yuboring</strong>! AI ulardan qanday taom tayyorlash mumkinligini va qadam-baqadam ko'rsatib beradi.
+                </p>
+
+                <div className="ai-input-grid">
+                  {/* 1. Rasm yuklash & Gemini Vision Skanerlash */}
+                  <div className="ai-upload-card" onClick={() => document.getElementById("ai-photo-upload-input").click()}>
+                    <input 
+                      type="file" 
+                      id="ai-photo-upload-input"
+                      className="file-input-hidden" 
+                      accept="image/*"
+                      onChange={handlePhotoUpload}
+                    />
+                    
+                    {uploadedPhoto ? (
+                      <div className="upload-preview-box">
+                        <img src={uploadedPhoto} alt="Yuklangan masalliqlar" />
+                        {isScanningPhoto && <div className="scanner-laser-bar"></div>}
+                        <div className="scanner-status-tag">
+                          {isScanningPhoto ? "🔍 Gemini Vision piksellarni tahlil qilmoqda..." : (photoScanTag || "Rasm tahlil qilindi")}
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="ai-upload-icon">📸</div>
+                        <h4>Surat yuklash (Gemini Vision)</h4>
+                        <p>Go'sht, sabzi, guruch yoki istalgan masalliqlarni rasmga oling. Gemini AI piksellardan aniqlaydi!</p>
+                        <div style={{ marginTop: "12px", display: "flex", gap: "8px", justifyContent: "center" }}>
+                          <span className="btn-add-ing" style={{ display: "inline-block" }}>
+                            Surat tanlash 📁
+                          </span>
+                          {!geminiApiKey && (
+                            <span 
+                              className="btn-add-ing" 
+                              style={{ display: "inline-block", background: "rgba(139, 92, 246, 0.2)", borderColor: "#8b5cf6", color: "#c4b5fd" }}
+                              onClick={(e) => { e.stopPropagation(); setIsGeminiModalOpen(true); }}
+                            >
+                              🔑 API Kalit
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 2. Tanlangan Masalliqlar va O'zingiz Yozish */}
+                  <div className="ai-text-input-card">
+                    <h4>
+                      <span>📝</span> Menda bor masalliqlar ({fridgeIngredients.length} ta):
+                    </h4>
+
+                    {/* Qo'lda yozib kiritish inputi */}
+                    <div className="ai-input-field-group">
+                      <input 
+                        type="text"
+                        className="ai-ingredient-input"
+                        placeholder="O'zingiz xohlagan masalliqni yozing (masalan: Mol go'shti, Guruch, Qazi...)"
+                        value={customIngInput}
+                        onChange={(e) => setCustomIngInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            handleAddFridgeIngredient();
+                          }
+                        }}
+                      />
+                      <button className="btn-add-ing" onClick={() => handleAddFridgeIngredient()}>
+                        + Qo'shish
+                      </button>
+                    </div>
+
+                    {/* Tanlangan masalliqlar chiplari */}
+                    <div className="selected-ingredients-wrap">
+                      {fridgeIngredients.length > 0 ? (
+                        fridgeIngredients.map((ing, idx) => (
+                          <span key={idx} className="ing-chip">
+                            <span>🥬 {ing}</span>
+                            <span 
+                              className="ing-chip-remove" 
+                              onClick={() => handleRemoveFridgeIngredient(idx)}
+                              title="O'chirish"
+                            >
+                              ✕
+                            </span>
+                          </span>
+                        ))
+                      ) : (
+                        <span style={{ fontSize: "13px", color: "var(--text-dim)" }}>
+                          Hozircha masalliq qo'shilmagan. Quyidagi katalogdan tanlang yoki yuqoriga yozing!
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="selected-summary-bar">
+                      <span>Jami tanlandi: <strong style={{ color: "var(--primary)" }}>{fridgeIngredients.length} ta</strong></span>
+                      {fridgeIngredients.length > 0 && (
+                        <button className="btn-clear-ings" onClick={handleClearFridgeIngredients}>
+                          Barchasini tozalash 🗑️
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 3. KATTA 346+ MASALLIQLAR KATALOGI (Bir vaqtda tanlash va qidirish) */}
+                <div className="ing-catalog-card">
+                  <div className="ing-catalog-header">
+                    <h4>
+                      <span>🛒</span> 346+ Masalliqlar Bazasi (Bir bosishda qo'shing yoki o'chiring):
+                    </h4>
+                    <div className="ing-search-box">
+                      <span className="search-icon">🔍</span>
+                      <input 
+                        type="text"
+                        placeholder="Masalliq qidirish (sabzi, go'sht, un...)"
+                        value={ingredientSearchQuery}
+                        onChange={(e) => setIngredientSearchQuery(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Kategoriya tablari */}
+                  <div className="ing-cat-tabs">
+                    {(window.INGREDIENT_CATEGORIES || []).map(cat => (
+                      <button 
+                        key={cat.id}
+                        className={`ing-cat-tab-btn ${ingredientCategoryFilter === cat.id ? "active" : ""}`}
+                        onClick={() => setIngredientCategoryFilter(cat.id)}
+                      >
+                        <span>{cat.icon}</span>
+                        <span>{cat.label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Masalliqlar buluti (Cloud Grid) */}
+                  <div className="ing-cloud-grid">
+                    {filteredCatalogIngredients.length > 0 ? (
+                      filteredCatalogIngredients.map(item => {
+                        const isSelected = fridgeIngredients.some(i => i.toLowerCase() === item.name.toLowerCase());
+                        return (
+                          <button
+                            key={item.id}
+                            className={`ing-catalog-pill ${isSelected ? "selected" : ""}`}
+                            onClick={() => handleToggleFridgeIngredient(item.name)}
+                            title={isSelected ? "O'chirish uchun bosing" : "Qo'shish uchun bosing"}
+                          >
+                            <span>{item.icon}</span>
+                            <span>{item.name}</span>
+                            <span style={{ fontSize: "11px", opacity: 0.7 }}>
+                              {isSelected ? "✓" : "+"}
+                            </span>
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div style={{ padding: "16px", color: "var(--text-dim)", fontSize: "13px" }}>
+                        "{ingredientSearchQuery}" bo'yicha masalliq topilmadi. Yuqoridagi inputga o'zingiz yozib qo'shishingiz mumkin!
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div style={{ textAlign: "center", marginTop: "24px" }}>
+                  <button 
+                    className="btn-generate-ai" 
+                    onClick={handleGenerateAiRecipes}
+                    disabled={isGeneratingAi}
+                  >
+                    <span>✨</span>
+                    <span>
+                      {isGeneratingAi 
+                        ? (geminiApiKey ? "Gemini AI fikrlamoqda..." : "AI hisob-kitob qilmoqda...") 
+                        : (geminiApiKey ? "🤖 Haqiqiy Gemini AI Bilan Taom Yaratish" : "🤖 AI Bilan Taom Taklif Qilish")}
+                    </span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Fikrlash animatsiyasi */}
+              {isGeneratingAi && (
+                <div className="ai-thinking-box">
+                  <div className="ai-pulse-brain">🧠✨</div>
+                  <h3 style={{ fontSize: "20px", fontWeight: "800", marginTop: "12px" }}>
+                    {geminiApiKey 
+                      ? "Google Gemini 2.5 Flash neyrotarmog'i maxsus retsept yaratmoqda..." 
+                      : "AI Oshpaz masalliqlaringizni 54 ta taom bilan solishtirmoqda..."}
+                  </h3>
+                  <p style={{ color: "var(--text-muted)", fontSize: "14px", marginTop: "6px" }}>
+                    Oshpazlik sirlari, aniq porsiyalar va ta'mlar mutanosibligi hisoblanmoqda...
+                  </p>
+                </div>
+              )}
+
+              {/* AI Natijalari */}
+              {aiMatchedRecipes && !isGeneratingAi && (
+                <div>
+                  {aiCustomDish && (
+                    <div style={{
+                      background: "linear-gradient(135deg, rgba(16, 185, 129, 0.16), rgba(6, 78, 59, 0.35))",
+                      border: "1px solid rgba(16, 185, 129, 0.45)",
+                      borderRadius: "var(--radius-xl)",
+                      padding: "28px",
+                      marginBottom: "35px",
+                      boxShadow: "0 10px 30px rgba(0,0,0,0.3)"
+                    }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "14px", flexWrap: "wrap", gap: "10px" }}>
+                        <span className="badge-tag" style={{ background: aiCustomDish.isGeminiPowered ? "linear-gradient(135deg, #10b981, #059669)" : "var(--accent-green)", color: "#000", fontWeight: "800" }}>
+                          {aiCustomDish.isGeminiPowered ? "✨ Gemini 2.5 Flash Mualliflik Retsepti" : "⭐ AI Oshpaz Retsepti"}
+                        </span>
+                        <div style={{ display: "flex", gap: "10px", fontSize: "13px", color: "#34d399", fontWeight: "700" }}>
+                          <span>⏱️ {aiCustomDish.time} daqiqa</span>
+                          <span>🔥 {aiCustomDish.calories} kkal</span>
+                          <span>👥 {aiCustomDish.servings} kishilik</span>
+                          <span>📊 {aiCustomDish.difficulty}</span>
+                        </div>
+                      </div>
+
+                      <h3 style={{ fontSize: "24px", fontWeight: "900", marginBottom: "10px", color: "#fff" }}>
+                        {aiCustomDish.title}
+                      </h3>
+                      <p style={{ color: "#d1fae5", fontSize: "15px", marginBottom: "20px", lineHeight: 1.7 }}>
+                        {aiCustomDish.description}
+                      </p>
+
+                      {aiCustomDish.ingredients && aiCustomDish.ingredients.length > 0 && (
+                        <div style={{ marginBottom: "20px" }}>
+                          <h4 style={{ fontSize: "15px", fontWeight: "800", marginBottom: "10px", color: "#6ee7b7" }}>
+                            🛒 Kerakli masalliqlar va miqdorlar:
+                          </h4>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
+                            {aiCustomDish.ingredients.map((ingItem, i) => (
+                              <span key={i} style={{ background: "rgba(0,0,0,0.35)", padding: "6px 14px", borderRadius: "var(--radius-pill)", fontSize: "13px", color: "#a7f3d0", border: "1px solid rgba(16,185,129,0.3)" }}>
+                                🌿 {ingItem}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <h4 style={{ fontSize: "15px", fontWeight: "800", marginBottom: "12px", color: "#6ee7b7" }}>
+                        👨‍🍳 Qadam-baqadam pishirish yo'riqnomasi:
+                      </h4>
+                      <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "20px" }}>
+                        {aiCustomDish.steps.map((st, i) => (
+                          <div key={i} style={{ fontSize: "14px", color: "#e2e8f0", background: "rgba(0,0,0,0.25)", padding: "12px 16px", borderRadius: "10px", display: "flex", alignItems: "flex-start", gap: "10px" }}>
+                            <span style={{ color: "#34d399", fontWeight: "800" }}>{i + 1}.</span>
+                            <span>{st}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="tip-box" style={{ background: "rgba(16,185,129,0.12)", borderColor: "#10b981", color: "#a7f3d0", marginBottom: aiCustomDish.substituteAdvice ? "14px" : "0" }}>
+                        <strong>💡 Bosh Oshpazning Oltin Siri:</strong> {aiCustomDish.chefSecret}
+                      </div>
+
+                      {aiCustomDish.substituteAdvice && (
+                        <div className="tip-box" style={{ background: "rgba(59,130,246,0.12)", borderColor: "#3b82f6", color: "#bfdbfe" }}>
+                          <strong>🔄 Masalliq Yetishmaganda:</strong> {aiCustomDish.substituteAdvice}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="ai-results-header">
+                    <h3>
+                      <span>🎯</span> Ushbu masalliqlar bilan pishirish mumkin bo'lgan taomlar:
+                    </h3>
+                  </div>
+
+                  <div className="recipes-grid">
+                    {aiMatchedRecipes.map(recipe => (
+                      <div key={recipe.id} className="recipe-card">
+                        <div className="card-img-wrapper" onClick={() => handleOpenRecipeModal(recipe)}>
+                          <img src={recipe.image} alt={recipe.title} className="card-img" />
+                          
+                          <div className="card-top-badges">
+                            <span className={`match-score-badge ${recipe.matchScore >= 60 ? "match-high" : "match-mid"}`}>
+                              ⚡ {recipe.matchScore}% mos keldi
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="card-body">
+                          <h3 className="card-title">{recipe.title}</h3>
+                          <p className="card-desc">{recipe.description}</p>
+
+                          {recipe.missingIngredients && recipe.missingIngredients.length > 0 && (
+                            <div className="missing-ing-notice">
+                              <span>Yetishmayotgan: {recipe.missingIngredients.join(", ")}</span>
+                              <button 
+                                style={{ display: "block", color: "#38bdf8", fontSize: "11px", fontWeight: "700", marginTop: "4px" }}
+                                onClick={() => handleOpenSubstituteModal(recipe.missingIngredients[0])}
+                              >
+                                AI: O'rniga nima ishlatish mumkin? →
+                              </button>
+                            </div>
+                          )}
+
+                          <div className="card-footer">
+                            <div className="card-time">
+                              <span>⏱️</span> {recipe.time} daqiqa
+                            </div>
+                            <button className="btn-view-recipe" onClick={() => handleOpenRecipeModal(recipe)}>
+                              Retseptni ko'rish →
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* BATAFSIL RETSEPT MODALI */}
+          {activeRecipe && (
+            <div className="modal-overlay" onClick={handleCloseRecipeModal}>
+              <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                <button className="modal-close-btn" onClick={handleCloseRecipeModal}>✕</button>
+
+                <div className="modal-header-banner">
+                  <img src={activeRecipe.image} alt={activeRecipe.title} />
+                  <div className="modal-banner-gradient"></div>
+                  <div className="modal-banner-info">
+                    <span className="badge-tag badge-cat">{activeRecipe.categoryLabel}</span>
+                    <h2 style={{ fontSize: "28px", fontWeight: "900", marginTop: "8px" }}>
+                      {activeRecipe.title}
+                    </h2>
+                  </div>
+                </div>
+
+                <div className="modal-body">
+                  <div className="modal-quick-stats">
+                    <div className="quick-stat-item">
+                      <span>Tayyorlash vaqti</span>
+                      <strong>⏱️ {activeRecipe.time} daqiqa</strong>
+                    </div>
+                    <div className="quick-stat-item">
+                      <span>Qiyinlik darajasi</span>
+                      <strong>📊 {activeRecipe.difficulty}</strong>
+                    </div>
+                    <div className="quick-stat-item">
+                      <span>Energetik quvvat</span>
+                      <strong>🔥 {activeRecipe.calories} kkal</strong>
+                    </div>
+                    <div className="quick-stat-item">
+                      <span>Baholash</span>
+                      <strong>⭐ {activeRecipe.rating} / 5.0</strong>
+                    </div>
+                  </div>
+
+                  {/* AI Masalliq O'rnini Bosish Banneri */}
+                  <div className="modal-ai-helper-banner">
+                    <div className="modal-ai-helper-text">
+                      <strong>🤖 Biror masalliq uyingizda yo'qmi?</strong>
+                      <div>AI Oshpaz sizga darhol uy sharoitidagi eng yaxshi muqobillarini aytadi!</div>
+                    </div>
+                    <button 
+                      className="btn-ask-ai-sub"
+                      onClick={() => handleOpenSubstituteModal(activeRecipe.ingredients[0] ? activeRecipe.ingredients[0].name : "")}
+                    >
+                      AI Maslahat Olish 💡
+                    </button>
+                  </div>
+
+                  {/* Porsiya hisoblagich */}
+                  <div className="servings-controller">
+                    <div>
+                      <strong>🍽️ Porsiya miqdori:</strong>
+                      <div style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                        Masalliqlar grammi porsiyaga qarab avtomatik ko'paytiriladi
+                      </div>
+                    </div>
+                    <div className="servings-counter-group">
+                      <button 
+                        className="counter-btn" 
+                        onClick={() => handleServingChange(-1)}
+                        disabled={servingsCount <= 1}
+                      >
+                        -
+                      </button>
+                      <span className="servings-number">{servingsCount} kishi</span>
+                      <button className="counter-btn" onClick={() => handleServingChange(1)}>
+                        +
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Taymer */}
+                  <div className="timer-widget">
+                    <div>
+                      <div style={{ fontSize: "11px", color: "var(--text-dim)", textTransform: "uppercase" }}>
+                        ⏱️ Oshxona Taymeri (Sekundomer)
+                      </div>
+                      <div className="timer-digits">{formatTimer(timerSeconds)}</div>
+                    </div>
+                    <div className="timer-controls">
+                      <button 
+                        className={`btn-timer ${isTimerActive ? "btn-timer-pause" : "btn-timer-start"}`}
+                        onClick={toggleTimer}
+                      >
+                        {isTimerActive ? "Pauza ⏸️" : "Boshlash ▶️"}
+                      </button>
+                      <button className="btn-timer btn-timer-reset" onClick={resetTimer}>
+                        Qayta o'rnatish 🔄
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Masalliqlar */}
+                  <h4 className="section-heading">🛒 Kerakli Masalliqlar (Bosib belgilang):</h4>
+                  <div className="ingredients-list">
+                    {activeRecipe.ingredients.map((ing, idx) => {
+                      const calculatedAmount = Math.round((ing.amount / (activeRecipe.servings || 4)) * servingsCount);
+                      const isChecked = !!checkedIngredients[idx];
+                      return (
+                        <div 
+                          key={idx} 
+                          className={`ingredient-item ${isChecked ? "checked" : ""}`}
+                          onClick={() => handleToggleIngredient(idx)}
+                          title="Belgilash uchun bosing"
+                        >
+                          <div className="ing-name">
+                            <span>{isChecked ? "✅" : "▫️"}</span>
+                            <span>{ing.name}</span>
+                          </div>
+                          <div className="ing-amount">
+                            {calculatedAmount > 0 ? calculatedAmount : ""} {ing.unit}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Qadamlar */}
+                  <h4 className="section-heading">👨‍🍳 Tayyorlash Bosqichlari:</h4>
+                  <div className="instructions-list">
+                    {activeRecipe.instructions.map((step, idx) => (
+                      <div key={idx} className="instruction-step">
+                        <div className="step-num">{idx + 1}</div>
+                        <div className="step-text">{step}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {activeRecipe.tips && (
+                    <div className="tip-box">
+                      <strong>💡 Oshpaz maslahati:</strong> {activeRecipe.tips}
+                    </div>
+                  )}
+
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "24px" }}>
+                    <button 
+                      className={`fav-nav-btn ${favorites.includes(activeRecipe.id) ? "active" : ""}`}
+                      onClick={() => toggleFavorite(activeRecipe.id)}
+                      style={{ background: favorites.includes(activeRecipe.id) ? "var(--accent-red)" : "" }}
+                    >
+                      {favorites.includes(activeRecipe.id) ? "❤️ Sevimlilarda saqlangan" : "🤍 Sevimlilarga qo'shish"}
+                    </button>
+                    <button className="btn-primary-compact" onClick={handleCloseRecipeModal}>
+                      Yopish
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* AI MASALLIQ O'RNINI BOSISH MODALI */}
+          {isSubModalOpen && (
+            <div className="modal-overlay" onClick={() => setIsSubModalOpen(false)}>
+              <div className="modal-content" style={{ maxWidth: "650px" }} onClick={(e) => e.stopPropagation()}>
+                <button className="modal-close-btn" onClick={() => setIsSubModalOpen(false)}>✕</button>
+
+                <div className="modal-body">
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "16px" }}>
+                    <span style={{ fontSize: "32px" }}>🤖</span>
+                    <div>
+                      <h3 style={{ fontSize: "20px", fontWeight: "800" }}>
+                        AI Maslahatchi: Masalliq Yetishmayaptimi?
+                      </h3>
+                      <span style={{ fontSize: "13px", color: "var(--accent-purple)" }}>
+                        Uy sharoitida o'rnini bosuvchi eng to'g'ri yechimlar
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="form-group">
+                    <label>Qaysi masalliq sizda yo'q? (yozing yoki tanlang):</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      placeholder="Masalan: Devzira guruch, Qaymoq, Dumba, Parmezan, Pomidor..."
+                      value={subQuery}
+                      onChange={handleSubQueryChange}
+                    />
+                  </div>
+
+                  <div className="quick-pills-cloud" style={{ marginBottom: "18px" }}>
+                    {[
+                      "Go'sht", "Sabzi", "Guruch", "Dumba", "Qaymoq", "Pishloq", 
+                      "Jusay", "Pomidor", "Tuxum", "Asal", "Maskarpone", "Zira", 
+                      "Sarimsoq", "Kartoshka", "Sariyog'", "Smetana", "Mayonez", "Soya"
+                    ].map(k => (
+                      <button 
+                        key={k} 
+                        className="quick-ing-pill"
+                        onClick={() => {
+                          setSubQuery(k);
+                          findSubstitute(k);
+                        }}
+                      >
+                        #{k}
+                      </button>
+                    ))}
+                  </div>
+
+                  {isSubLoadingAi && (
+                    <div style={{ textAlign: "center", padding: "12px", color: "#c4b5fd", fontSize: "13px", background: "rgba(139, 92, 246, 0.1)", borderRadius: "var(--radius-sm)", marginBottom: "14px" }}>
+                      🧠 Google Gemini AI professional oshpazlik muqobilini tayyorlamoqda...
+                    </div>
+                  )}
+
+                  {subResult && (
+                    <div className="ai-sub-answer-box">
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                        <h4 style={{ fontSize: "16px", fontWeight: "800", color: "#c4b5fd" }}>
+                          ✨ {subResult.name} uchun AI yechimlari:
+                        </h4>
+                        <span className="gemini-badge-pill" style={{ background: subResult.isGeminiLive ? "rgba(16,185,129,0.25)" : "rgba(139,92,246,0.25)", color: subResult.isGeminiLive ? "#34d399" : "#c4b5fd" }}>
+                          {subResult.isGeminiLive ? "✨ Gemini Live AI" : "📚 Oshpazlik Bazasi"}
+                        </span>
+                      </div>
+
+                      <div style={{ marginBottom: "14px" }}>
+                        <div style={{ fontSize: "12px", color: "var(--text-dim)", textTransform: "uppercase", marginBottom: "6px" }}>
+                          O'rniga nima ishlatish mumkin:
+                        </div>
+                        {subResult.alternatives.map((alt, i) => (
+                          <div key={i} className="ai-sub-alt-item">
+                            <span>🔹</span>
+                            <span>{alt}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="tip-box" style={{ background: "rgba(139, 92, 246, 0.12)", borderColor: "#8b5cf6", color: "#ddd6fe" }}>
+                        <strong>👨‍🍳 Bosh Oshpaz Siri:</strong> {subResult.advice}
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "18px" }}>
+                    {!geminiApiKey ? (
+                      <button 
+                        type="button"
+                        style={{ fontSize: "12px", color: "#38bdf8", cursor: "pointer", background: "none", border: "none" }}
+                        onClick={() => { setIsSubModalOpen(false); setIsGeminiModalOpen(true); }}
+                      >
+                        🔑 100% Haqiqiy Gemini AI maslahati uchun kalit ulang →
+                      </button>
+                    ) : <span />}
+                    <button className="btn-primary-compact" onClick={() => setIsSubModalOpen(false)}>
+                      Tushunarli, Rahmat! 👍
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SEVIMLILAR YON PANELI (DRAWER) */}
+          {isFavoritesDrawerOpen && (
+            <div className="drawer-overlay" onClick={() => setIsFavoritesDrawerOpen(false)}>
+              <div className="drawer-content" onClick={(e) => e.stopPropagation()}>
+                <div className="drawer-header">
+                  <div>
+                    <h3 style={{ fontSize: "18px", fontWeight: "800" }}>❤️ Sevimli Retseptlar</h3>
+                    <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                      Jami: {favoriteRecipesList.length} ta taom saqlangan
+                    </span>
+                  </div>
+                  <button className="search-clear-btn" onClick={() => setIsFavoritesDrawerOpen(false)}>✕</button>
+                </div>
+
+                <div className="drawer-list">
+                  {favoriteRecipesList.length > 0 ? (
+                    favoriteRecipesList.map(recipe => (
+                      <div key={recipe.id} className="fav-item-card">
+                        <img src={recipe.image} alt={recipe.title} className="fav-thumb" />
+                        <div className="fav-info" onClick={() => { handleOpenRecipeModal(recipe); setIsFavoritesDrawerOpen(false); }}>
+                          <h4 style={{ cursor: "pointer" }}>{recipe.title}</h4>
+                          <div className="fav-meta">
+                            ⏱️ {recipe.time} daqiqa • 🔥 {recipe.calories} kkal
+                          </div>
+                        </div>
+                        <button className="fav-remove-btn" onClick={() => toggleFavorite(recipe.id)}>🗑️</button>
+                      </div>
+                    ))
+                  ) : (
+                    <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--text-muted)" }}>
+                      <div style={{ fontSize: "40px", marginBottom: "12px" }}>💔</div>
+                      <p>Hozircha hech qanday sevimli retsept qo'shilmagan.</p>
+                    </div>
+                  )}
+                </div>
+
+                {favoriteRecipesList.length > 0 && (
+                  <div style={{ padding: "16px", borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                    <button 
+                      className="btn-primary-compact" 
+                      style={{ width: "100%", justifyContent: "center" }}
+                      onClick={() => {
+                        setFavorites([]);
+                        showToast("Barcha sevimlilar tozalandi");
+                      }}
+                    >
+                      Barchasini tozalash 🗑️
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* YANGI RETSEPT QO'SHISH MODALI */}
+          {isAddModalOpen && (
+            <div className="modal-overlay" onClick={() => setIsAddModalOpen(false)}>
+              <div className="modal-content" style={{ maxWidth: "600px" }} onClick={(e) => e.stopPropagation()}>
+                <button className="modal-close-btn" onClick={() => setIsAddModalOpen(false)}>✕</button>
+                
+                <div className="modal-body">
+                  <h3 style={{ fontSize: "22px", fontWeight: "800", marginBottom: "12px" }}>
+                    🍳 Yangi Retsept Qo'shish
+                  </h3>
+
+                  <form onSubmit={handleAddRecipeSubmit}>
+                    <div className="form-group">
+                      <label>Retsept Nomi *</label>
+                      <input 
+                        type="text" 
+                        name="title" 
+                        className="form-control" 
+                        placeholder="Masalan: Jiz-biz yoki Qozon kabob" 
+                        value={newRecipeForm.title} 
+                        onChange={handleNewRecipeInputChange}
+                        required
+                      />
+                    </div>
+
+                    <div className="form-grid-2">
+                      <div className="form-group">
+                        <label>Kategoriya</label>
+                        <select 
+                          name="category" 
+                          className="form-control" 
+                          value={newRecipeForm.category} 
+                          onChange={handleNewRecipeInputChange}
+                        >
+                          <option value="milliy">Milliy taom</option>
+                          <option value="shorva">Sho'rva</option>
+                          <option value="fastfood">Fast Food / Pasta</option>
+                          <option value="salat">Salat</option>
+                          <option value="shirinlik">Shirinlik</option>
+                        </select>
+                      </div>
+
+                      <div className="form-group">
+                        <label>Qiyinlik darajasi</label>
+                        <select 
+                          name="difficulty" 
+                          className="form-control" 
+                          value={newRecipeForm.difficulty} 
+                          onChange={handleNewRecipeInputChange}
+                        >
+                          <option value="Oson">Oson</option>
+                          <option value="O'rtacha">O'rtacha</option>
+                          <option value="Qiyin">Qiyin</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="form-grid-2">
+                      <div className="form-group">
+                        <label>Tayyorlash vaqti (daqiqa)</label>
+                        <input 
+                          type="number" 
+                          name="time" 
+                          className="form-control" 
+                          placeholder="40" 
+                          value={newRecipeForm.time} 
+                          onChange={handleNewRecipeInputChange}
+                        />
+                      </div>
+
+                      <div className="form-group">
+                        <label>Kaloriyasi (kkal)</label>
+                        <input 
+                          type="number" 
+                          name="calories" 
+                          className="form-control" 
+                          placeholder="450" 
+                          value={newRecipeForm.calories} 
+                          onChange={handleNewRecipeInputChange}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label>Masalliqlar (har birini yangi qatordan yozing)</label>
+                      <textarea 
+                        name="ingredientsText" 
+                        className="form-control" 
+                        rows="3" 
+                        placeholder="Go'sht (400g)&#10;Piyoz (2 dona)"
+                        value={newRecipeForm.ingredientsText}
+                        onChange={handleNewRecipeInputChange}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label>Tayyorlash qadamlari</label>
+                      <textarea 
+                        name="instructionsText" 
+                        className="form-control" 
+                        rows="3" 
+                        placeholder="1. Go'shtni qovuring&#10;2. Piyozni qo'shing"
+                        value={newRecipeForm.instructionsText}
+                        onChange={handleNewRecipeInputChange}
+                      />
+                    </div>
+
+                    <div style={{ display: "flex", gap: "10px", justifyContent: "flex-end", marginTop: "20px" }}>
+                      <button type="button" className="btn-timer btn-timer-reset" onClick={() => setIsAddModalOpen(false)}>
+                        Bekor qilish
+                      </button>
+                      <button type="submit" className="btn-primary-compact">
+                        Retseptni saqlash 💾
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* GOOGLE GEMINI AI SOZLAMALARI MODALI */}
+          {isGeminiModalOpen && (
+            <div className="modal-overlay" onClick={() => setIsGeminiModalOpen(false)}>
+              <div className="modal-content gemini-config-modal" style={{ maxWidth: "680px" }} onClick={(e) => e.stopPropagation()}>
+                <button className="modal-close-btn" onClick={() => setIsGeminiModalOpen(false)}>✕</button>
+
+                <div className="modal-body">
+                  <div style={{ display: "flex", alignItems: "center", gap: "14px", marginBottom: "20px" }}>
+                    <div className="gemini-icon-avatar">✨</div>
+                    <div>
+                      <h3 style={{ fontSize: "22px", fontWeight: "900", background: "linear-gradient(135deg, #c4b5fd, #38bdf8)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
+                        Google Gemini AI Bilan Bog'lanish
+                      </h3>
+                      <span style={{ fontSize: "13px", color: "var(--text-muted)" }}>
+                        Haqiqiy Gemini 2.5 Flash / 1.5 Flash Vision neyrotarmog'i
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Status kartochkasi */}
+                  <div className="gemini-status-card" style={{
+                    background: geminiApiKey ? "rgba(16, 185, 129, 0.12)" : "rgba(245, 158, 11, 0.12)",
+                    border: `1px solid ${geminiApiKey ? "rgba(16, 185, 129, 0.35)" : "rgba(245, 158, 11, 0.35)"}`,
+                    borderRadius: "var(--radius-md)",
+                    padding: "16px",
+                    marginBottom: "20px"
+                  }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "10px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                        <span style={{ fontSize: "22px" }}>{geminiApiKey ? "🟢" : "🟡"}</span>
+                        <div>
+                          <strong style={{ fontSize: "14px", display: "block", color: geminiApiKey ? "#34d399" : "#fbbf24" }}>
+                            {geminiApiKey ? "Gemini AI Ulangan va Faol!" : "Gemini API kaliti kiritilmagan"}
+                          </strong>
+                          <span style={{ fontSize: "12px", color: "var(--text-muted)" }}>
+                            {geminiApiKey ? "Rasmlarni aniqlash (Vision), retsept generatsiyasi va AI maslahat to'liq ishlamoqda" : "Haqiqiy rasm tahlili va jonli AI javoblari uchun kalitingizni kiriting"}
+                          </span>
+                        </div>
+                      </div>
+                      {geminiApiKey && (
+                        <button 
+                          className="btn-danger-compact" 
+                          onClick={handleDisconnectGemini}
+                        >
+                          Kalitni O'chirish ✕
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* API Key kiritish maydoni */}
+                  <div className="form-group" style={{ marginBottom: "18px" }}>
+                    <label style={{ display: "block", fontSize: "13px", fontWeight: "700", marginBottom: "8px", color: "var(--text-main)" }}>
+                      Google Gemini API Kaliti (Google AI Studio):
+                    </label>
+                    <div style={{ display: "flex", gap: "10px" }}>
+                      <input 
+                        type={showApiKeyText ? "text" : "password"}
+                        className="form-control"
+                        style={{ flex: 1, fontFamily: "monospace", letterSpacing: "1px" }}
+                        placeholder="AIzaSy..."
+                        value={geminiApiKeyInput}
+                        onChange={(e) => setGeminiApiKeyInput(e.target.value)}
+                      />
+                      <button 
+                        type="button" 
+                        className="btn-toggle-eye" 
+                        onClick={() => setShowApiKeyText(!showApiKeyText)}
+                        title="Ko'rsatish / Yashirish"
+                      >
+                        {showApiKeyText ? "🙈" : "👁️"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Tugmalar */}
+                  <div style={{ display: "flex", gap: "12px", marginBottom: "20px", flexWrap: "wrap" }}>
+                    <button 
+                      className="btn-primary-compact"
+                      onClick={handleSaveGeminiKey}
+                      disabled={!geminiApiKeyInput.trim()}
+                    >
+                      💾 Kalitni Saqlash
+                    </button>
+
+                    <button 
+                      className="btn-secondary-compact"
+                      onClick={handleTestGeminiConnection}
+                      disabled={isTestingGemini || (!geminiApiKeyInput.trim() && !geminiApiKey)}
+                    >
+                      {isTestingGemini ? "⚡ Sinovdan o'tkazilmoqda..." : "🔌 Ulanishni Tekshirish"}
+                    </button>
+
+                    <a 
+                      href="https://aistudio.google.com/app/apikey" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="btn-get-key"
+                    >
+                      🔑 Bepul Kalit Olish (Google AI Studio) ↗
+                    </a>
+                  </div>
+
+                  {/* Sinov xabari */}
+                  {geminiTestMessage && (
+                    <div style={{
+                      padding: "12px 16px",
+                      borderRadius: "var(--radius-sm)",
+                      fontSize: "13px",
+                      marginBottom: "16px",
+                      background: geminiTestStatus === "success" ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)",
+                      border: `1px solid ${geminiTestStatus === "success" ? "#10b981" : "#ef4444"}`,
+                      color: geminiTestStatus === "success" ? "#a7f3d0" : "#fca5a5"
+                    }}>
+                      {geminiTestMessage}
+                    </div>
+                  )}
+
+                  {/* Ko'rsatma */}
+                  <div className="ai-instructions-box" style={{ background: "rgba(0,0,0,0.3)", padding: "16px", borderRadius: "var(--radius-md)", fontSize: "12px", color: "var(--text-muted)", lineHeight: 1.7 }}>
+                    <strong style={{ color: "#fff", display: "block", marginBottom: "6px" }}>💡 Bepul Gemini API Kalit Olish (1 Daqiqada):</strong>
+                    1. <strong>aistudio.google.com/app/apikey</strong> manziliga kiring (Google hisobingiz bilan).<br/>
+                    2. <strong>"Create API Key"</strong> tugmasini bosing va yaratilgan kalitni nusxalang.<br/>
+                    3. Ushbu oynaga joylab <strong>"Kalitni Saqlash"</strong> tugmasini bosing.<br/>
+                    <em>* Kalitingiz faqat sizning brauzeringizda xavfsiz saqlanadi va to'g'ridan-to'g'ri Google Gemini API serveriga ulanadi.</em>
+                  </div>
+
+                  <div style={{ textAlign: "right", marginTop: "18px" }}>
+                    <button className="btn-primary-compact" onClick={() => setIsGeminiModalOpen(false)}>
+                      Yopish
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Toast */}
+          {toastMessage && (
+            <div className="toast-notice">
+              <span>🔔</span>
+              <span>{toastMessage}</span>
+            </div>
+          )}
+
+          {/* Footer */}
+          <footer className="site-footer">
+            <div className="container">
+              <p style={{ fontWeight: "800", color: "var(--text-main)", marginBottom: "4px" }}>
+                Lazzat — 54 ta Retsept & Haqiqiy Google Gemini AI Oshpaz Portali
+              </p>
+              <p>
+                346+ masalliqlar bazasi, Google Gemini Vision rasm tahlili va interaktiv pazandachilik tizimi.
+              </p>
+            </div>
+          </footer>
+        </div>
+      );
+    }
+
+    const rootElement = document.getElementById("root");
+    if (rootElement) {
+      const root = ReactDOM.createRoot(rootElement);
+      root.render(<App />);
+    }
+  </script>
+</body>
+</html>
